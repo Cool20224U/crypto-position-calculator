@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Top 100 Crypto — 52-Week High &amp; Low Dashboard</title>
+<meta name="description" content="Live dashboard showing the 52-week high and low for the top 100 cryptocurrencies. See how far each coin is from its yearly high and low. Educational tool — not financial advice.">
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3;
+    --muted:#8b949e; --accent:#f7a600; --green:#3fb950; --red:#f85149;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+  body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 16px}
+  .wrap{max-width:1100px;margin:0 auto}
+  h1{font-size:1.5rem;margin-bottom:4px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:.9rem;margin-bottom:20px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+  .toolbar input{flex:1;min-width:200px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:1rem}
+  .toolbar input:focus{outline:none;border-color:var(--accent)}
+  .toolbar select{padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.9rem}
+  .toolbar select:focus{outline:none;border-color:var(--accent)}
+  .status{color:var(--muted);font-size:.85rem;margin-left:auto}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .stat .lbl{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .stat .val{font-size:1.25rem;font-weight:600;margin-top:4px}
+  .stat .val.accent{color:var(--accent)} .stat .val.green{color:var(--green)} .stat .val.red{color:var(--red)}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  thead th{font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);text-align:right;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg)}
+  thead th:first-child{text-align:left}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:right;font-size:.9rem;white-space:nowrap}
+  tbody td:first-child{text-align:left}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:rgba(247,166,0,.05)}
+  .rank{color:var(--muted);width:34px;display:inline-block}
+  .coin{display:flex;align-items:center;gap:8px}
+  .coin img{width:20px;height:20px;border-radius:50%;flex-shrink:0}
+  .coin .sym{color:var(--muted);font-size:.75rem}
+  .green{color:var(--green)} .red{color:var(--red)}
+  .rangebar{position:relative;width:100%;min-width:110px;height:8px;background:var(--bg);border-radius:4px;border:1px solid var(--border)}
+  .rangebar .marker{position:absolute;top:-4px;width:2px;height:16px;background:var(--accent);border-radius:1px}
+  .pos-cell{min-width:150px}
+  .center{text-align:center}
+  .loading{padding:40px;text-align:center;color:var(--muted)}
+  .pending{color:var(--muted);font-size:.85rem}
+  .disclaimer{color:var(--muted);font-size:.75rem;line-height:1.5;border-top:1px solid var(--border);padding-top:14px;margin-top:16px}
+  footer{text-align:center;color:var(--muted);font-size:.75rem;margin-top:20px}
+  footer a{color:var(--accent);text-decoration:none}
+  .tablewrap{overflow-x:auto;border-radius:12px}
+  .progress{height:4px;background:var(--border);border-radius:2px;margin-bottom:14px;overflow:hidden;display:none}
+  .progress.show{display:block}
+  .progress .fill{height:100%;background:var(--accent);width:0;transition:width .4s}
+  .note{background:rgba(247,166,0,.08);border:1px solid var(--accent);border-radius:8px;padding:10px 12px;font-size:.8rem;color:var(--text);margin-bottom:16px;display:none}
+  .note.show{display:block}
+  @media(max-width:640px){
+    thead th,tbody td{padding:8px 8px;font-size:.8rem}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Top 100 Crypto — 52-Week High &amp; Low</h1>
+  <p class="sub">Live data for the top 100 coins by market cap. See each coin's yearly range and where it trades today.</p>
+
+  <div class="toolbar">
+    <input type="search" id="search" placeholder="Search coin (e.g. bitcoin, ETH)…">
+    <select id="sortBy">
+      <option value="rank">Sort: Market cap rank</option>
+      <option value="fromHigh">Sort: % from 52w high (worst first)</option>
+      <option value="fromHighAsc">Sort: % from 52w high (best first)</option>
+      <option value="fromLow">Sort: % above 52w low (highest first)</option>
+    </select>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="note" id="note">
+    First visit computes the 52-week range for each coin from CoinGecko daily price history (throttled to respect the free API), so rows fill in gradually over a few minutes. Results are cached in your browser for 24 hours — subsequent visits load instantly.
+  </div>
+  <div class="progress" id="progress"><div class="fill" id="progressFill"></div></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Coin</th>
+          <th>Price</th>
+          <th>52-Week High</th>
+          <th>52-Week Low</th>
+          <th class="pos-cell">Position in range</th>
+          <th>From high</th>
+          <th>Above low</th>
+          <th>24h</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="9" class="loading">Loading market data…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="disclaimer"><strong>Educational tool only — not financial advice.</strong> Data is fetched live from the CoinGecko public API in your browser; nothing is stored or sent anywhere except your browser's local cache. Crypto assets are volatile and you can lose your entire investment. Past performance does not guarantee future results.</p>
+
+  <footer>Free tool • No signup • Data © <a href="https://www.coingecko.com" target="_blank" rel="noopener">CoinGecko</a> • <a href="index.html">Position Size Calculator</a></footer>
+</div>
+
+<script>
+(function(){
+  var CACHE_PREFIX = 'cpd52w:';
+  var CACHE_TTL = 24*60*60*1000;
+  var LIST_CACHE_KEY = 'cpd52w:list';
+  var LIST_TTL = 10*60*1000;
+  var REQ_DELAY = 4200;
+
+  var coins = [];
+  var tbody = document.getElementById('tbody');
+  var searchEl = document.getElementById('search');
+  var sortEl = document.getElementById('sortBy');
+  var statusEl = document.getElementById('status');
+  var statsEl = document.getElementById('stats');
+  var noteEl = document.getElementById('note');
+  var progEl = document.getElementById('progress');
+  var progFill = document.getElementById('progressFill');
+
+  function fmtUsd(n){
+    if(n===null||n===undefined||isNaN(n)) return '—';
+    var opts;
+    if(n>=1000) opts={maximumFractionDigits:0};
+    else if(n>=1) opts={minimumFractionDigits:2,maximumFractionDigits:2};
+    else opts={maximumFractionDigits:6};
+    return '$'+n.toLocaleString('en-US',opts);
+  }
+  function fmtPct(n){
+    if(n===null||n===undefined||isNaN(n)) return '—';
+    return (n>=0?'+':'')+n.toFixed(1)+'%';
+  }
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+  function cacheGet(key){
+    try{
+      var raw = localStorage.getItem(key);
+      if(!raw) return null;
+      var obj = JSON.parse(raw);
+      if(Date.now() - obj.t > CACHE_TTL) return null;
+      return obj.v;
+    }catch(e){ return null; }
+  }
+  function cacheSet(key, v){
+    try{ localStorage.setItem(key, JSON.stringify({t:Date.now(), v:v})); }catch(e){}
+  }
+
+  function computeDerived(c){
+    c.fromHigh = c.high>0 ? (c.price/c.high - 1)*100 : null;
+    c.aboveLow = c.low>0 && c.low>0 ? (c.price/c.low - 1)*100 : null;
+    c.posPct = (c.high>c.low && c.price>=c.low) ? Math.min(100,Math.max(0,(c.price-c.low)/(c.high-c.low)*100)) : null;
+  }
+
+  function render(){
+    var q = searchEl.value.trim().toLowerCase();
+    var sortBy = sortEl.value;
+    var list = coins.filter(function(c){
+      return !q || c.name.toLowerCase().indexOf(q)>=0 || c.symbol.toLowerCase().indexOf(q)>=0;
+    });
+    list = list.slice().sort(function(a,b){
+      if(sortBy==='fromHigh') return (a.fromHigh===null?-Infinity:a.fromHigh) - (b.fromHigh===null?-Infinity:b.fromHigh);
+      if(sortBy==='fromHighAsc') return (b.fromHigh===null?-Infinity:b.fromHigh) - (a.fromHigh===null?-Infinity:a.fromHigh);
+      if(sortBy==='fromLow') return (b.aboveLow===null?-Infinity:b.aboveLow) - (a.aboveLow===null?-Infinity:a.aboveLow);
+      return a.rank - b.rank;
+    });
+    if(!coins.length){
+      tbody.innerHTML = '<tr><td colspan="9" class="loading">No coins match your search.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(function(c){
+      computeDerived(c);
+      var markerLeft = c.posPct===null ? 0 : c.posPct.toFixed(1);
+      var pend = c.high===null ? '<span class="pending">computing…</span>' : '';
+      return '<tr>'
+        + '<td><span class="rank">'+c.rank+'</span></td>'
+        + '<td><div class="coin"><img src="'+esc(c.img)+'" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">'
+        + '<div><div>'+esc(c.name)+'</div><div class="sym">'+esc(c.symbol)+'</div></div></div></td>'
+        + '<td>'+fmtUsd(c.price)+'</td>'
+        + '<td class="green">'+(c.high===null?pend:fmtUsd(c.high))+'</td>'
+        + '<td class="red">'+(c.low===null?pend:fmtUsd(c.low))+'</td>'
+        + '<td class="pos-cell"><div style="display:flex;align-items:center;gap:8px">'
+        + '<div class="rangebar"><div class="marker" style="left:'+markerLeft+'%"></div></div>'
+        + '<span class="center" style="font-size:.75rem;color:var(--muted)">'+(c.posPct===null?'—':c.posPct.toFixed(0)+'%')+'</span></div></td>'
+        + '<td class="'+(c.fromHigh!==null&&c.fromHigh<=-30?'red':'')+'">'+(c.fromHigh===null?'—':fmtPct(c.fromHigh))+'</td>'
+        + '<td class="green">'+(c.aboveLow===null?'—':fmtPct(c.aboveLow))+'</td>'
+        + '<td class="'+(c.change24>=0?'green':'red')+'">'+fmtPct(c.change24)+'</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function renderStats(){
+    var done = coins.filter(function(c){return c.high!==null;});
+    if(!done.length){ statsEl.innerHTML=''; return; }
+    var avgFromHigh = done.reduce(function(s,c){return s+c.fromHigh;},0)/done.length;
+    var nearHigh = done.filter(function(c){return c.fromHigh>=-10;}).length;
+    var nearLow = done.filter(function(c){return c.fromHigh<=-70;}).length;
+    var best = done.slice().sort(function(a,b){return b.fromHigh-a.fromHigh;})[0];
+    statsEl.innerHTML =
+      '<div class="stat"><div class="lbl">Coins tracked</div><div class="val accent">'+coins.length+' <span style="font-size:.75rem;color:var(--muted)">('+done.length+' ready)</span></div></div>'
+      + '<div class="stat"><div class="lbl">Avg % from 52w high</div><div class="val '+(avgFromHigh<=-30?'red':'green')+'">'+fmtPct(avgFromHigh)+'</div></div>'
+      + '<div class="stat"><div class="lbl">Within 10% of high</div><div class="val green">'+nearHigh+'</div></div>'
+      + '<div class="stat"><div class="lbl">Down 70%+ from high</div><div class="val red">'+nearLow+'</div></div>'
+      + '<div class="stat"><div class="lbl">Closest to yearly high</div><div class="val accent" style="font-size:1rem">'+esc(best.symbol)+' '+fmtPct(best.fromHigh)+'</div></div>';
+  }
+
+  function setStatus(msg, isError){ statusEl.textContent = msg; statusEl.style.color = isError ? 'var(--red)' : 'var(--muted)'; }
+  function showProgress(done, total){
+    progEl.className='progress show';
+    progFill.style.width = (done/total*100).toFixed(1)+'%';
+    if(done>=total){ setTimeout(function(){ progEl.className='progress'; }, 2000); }
+  }
+
+  function fetchJson(url){
+    return fetch(url).then(function(r){
+      if(r.status===429) throw new Error('rate-limited');
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    });
+  }
+
+  function loadList(){
+    var cachedList = cacheGet(LIST_CACHE_KEY);
+    if(cachedList){
+      coins = cachedList;
+      return Promise.resolve();
+    }
+    var base = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&price_change_percentage=24h&sparkline=false&locale=en';
+    return fetchJson(base+'&per_page=50&page=1').then(function(p1){
+      return fetchJson(base+'&per_page=50&page=2').then(function(p2){
+        coins = p1.concat(p2).slice(0,100).map(function(c,i){
+          return {
+            id: c.id,
+            rank: c.market_cap_rank || i+1,
+            name: c.name,
+            symbol: (c.symbol||'').toUpperCase(),
+            img: c.image || '',
+            price: c.current_price,
+            high: null,
+            low: null,
+            change24: (c.price_change_percentage_24h===null||c.price_change_percentage_24h===undefined) ? 0 : c.price_change_percentage_24h
+          };
+        });
+        try{ localStorage.setItem(LIST_CACHE_KEY, JSON.stringify({t:Date.now(), v:coins})); }catch(e){}
+      });
+    });
+  }
+
+  function computeOne(coin){
+    var key = CACHE_PREFIX + coin.id;
+    var cached = cacheGet(key);
+    if(cached){
+      coin.high = cached.h;
+      coin.low = cached.l;
+      return Promise.resolve();
+    }
+    var url = 'https://api.coingecko.com/api/v3/coins/'+encodeURIComponent(coin.id)+'/market_chart?vs_currency=usd&days=365';
+    return fetchJson(url).then(function(data){
+      var prices = (data.prices||[]).map(function(p){ return p[1]; }).filter(function(v){ return v>0; });
+      if(!prices.length) throw new Error('no data');
+      coin.high = Math.max.apply(null, prices);
+      coin.low = Math.min.apply(null, prices);
+      cacheSet(key, {h:coin.high, l:coin.low});
+    });
+  }
+
+  var pendingIdx = 0;
+  var completed = 0;
+
+  function processQueue(){
+    if(pendingIdx >= coins.length){
+      renderStats(); render();
+      setStatus('Updated '+new Date().toLocaleTimeString(), false);
+      return;
+    }
+    var coin = coins[pendingIdx];
+    if(coin.high !== null){
+      pendingIdx++; completed++;
+      showProgress(completed, coins.length);
+      processQueue();
+      return;
+    }
+    setStatus('Computing 52-week ranges… '+completed+'/'+coins.length, false);
+    computeOne(coin).then(function(){
+      completed++;
+    }).catch(function(){
+      completed++;
+    }).then(function(){
+      pendingIdx++;
+      showProgress(completed, coins.length);
+      renderStats(); render();
+      if(pendingIdx < coins.length){
+        setStatus('Computing 52-week ranges… '+completed+'/'+coins.length, false);
+        setTimeout(processQueue, REQ_DELAY);
+      }else{
+        setStatus('Updated '+new Date().toLocaleTimeString(), false);
+      }
+    });
+  }
+
+  function load(){
+    setStatus('Fetching top 100 coins…', false);
+    loadList().then(function(){
+      noteEl.className='note show';
+      renderStats();
+      render();
+      processQueue();
+    }).catch(function(err){
+      tbody.innerHTML = '<tr><td colspan="9" class="loading" style="color:var(--red)">Could not load data ('+esc(err.message)+'). The CoinGecko public API may be rate-limiting — wait a minute and reload.</td></tr>';
+      setStatus('Load failed', true);
+    });
+  }
+
+  searchEl.addEventListener('input', render);
+  sortEl.addEventListener('change', render);
+  load();
+  setInterval(function(){ try{ localStorage.removeItem(LIST_CACHE_KEY); }catch(e){} load(); }, 15*60*1000);
+})();
+</script>
+</body>
+</html>
