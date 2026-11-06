@@ -52,6 +52,12 @@ mistral-chat/
         └── index.css      # Tailwind CSS v4 entry
 ```
 
+## Deploy (Render, one click)
+
+1. Push this repo to GitHub, then go to https://dashboard.render.com → **New → Blueprint** and select the repo (a `render.yaml` is included).
+2. When prompted, set the `MISTRAL_API_KEY` environment variable to your Mistral API key (https://console.mistral.ai/api-keys). It stays on the server.
+3. Deploy — you get a public HTTPS URL serving the API and the built frontend.
+
 ## How it works
 
 - The client sends the full conversation to `POST /api/chat` as `{ messages: [{role, content}, ...] }`.
